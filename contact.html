@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Contact — Anmol Lamsal</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="nav">
+    <a href="/index.html">Home</a>
+    <a href="/news.html">News</a>
+    <a href="/contact.html" class="active">Contact</a>
+    <a href="/about.html">About</a>
+  </header>
+
+  <main class="container">
+    <h1>Contact Me</h1>
+    <form id="contactForm">
+      <label for="name">Name</label>
+      <input type="text" id="name" name="name" required>
+
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" required>
+
+      <label for="message">Message</label>
+      <textarea id="message" name="message" rows="6" required></textarea>
+
+      <button type="submit" class="cta-button">Send</button>
+      <p id="contactStatus" aria-live="polite"></p>
+    </form>
+  </main>
+
+  <footer>
+    <p>© 2025 Anmol Lamsal</p>
+  </footer>
+
+  <script>
+    // contact form POST to backend
+    document.getElementById('contactForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const statusEl = document.getElementById('contactStatus');
+      statusEl.textContent = 'Sending...';
+
+      const payload = {
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        message: document.getElementById('message').value
+      };
+
+      try {
+        const res = await fetch('/api/contact', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          statusEl.textContent = 'Thanks! Your message was saved.';
+          document.getElementById('contactForm').reset();
+        } else {
+          statusEl.textContent = 'Error: ' + (data.error || 'Unknown');
+        }
+      } catch (err) {
+        statusEl.textContent = 'Network error.';
+      }
+    });
+  </script>
+</body>
+</html>
