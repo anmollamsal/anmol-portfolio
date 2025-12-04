@@ -38,10 +38,11 @@ app.get("/", (req, res) => {﻿
 // ==========================﻿
 const transporter = nodemailer.createTransport({﻿
   service: "gmail",﻿
-  auth: {﻿
-    user: "lamsal.csit.np@gmail.com",﻿
-    pass: "inrw fmjy tlbj dqgb"      // <-- REPLACE THIS ONLY﻿
-  }﻿
+  auth: {
+  user: process.env.GMAIL_USER,
+  pass: process.env.GMAIL_PASS
+}
+﻿
 });﻿
 
 // ==========================﻿
@@ -124,3 +125,4 @@ app.listen(PORT, () => {﻿
   console.log(`✔ Server running at http://localhost:${PORT}`);﻿
   console.log("📂 Serving files from:", __dirname);﻿
 });
+
