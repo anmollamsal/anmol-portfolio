@@ -1,7 +1,6 @@
 // ==========================
 // 📦 IMPORTS
 // ==========================
-require('dotenv').config(); // Load .env variables
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
@@ -44,7 +43,7 @@ const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS, // must be Gmail App Password if 2FA is on
+    pass: process.env.GMAIL_PASS, // must be App Password
   },
 });
 
