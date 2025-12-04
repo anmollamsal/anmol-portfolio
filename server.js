@@ -6,6 +6,7 @@ const path = require("path");
 const fs = require("fs");
 const cors = require("cors");
 const Parser = require("rss-parser");
+const nodemailer = require("nodemailer");
 
 // ==========================
 // ⚙️ SETUP
@@ -21,10 +22,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files (HTML, CSS, JS, images)
+// Serve static files
 app.use(express.static(__dirname));
-
-// Serve data folder explicitly (for images)
 app.use("/data", express.static(path.join(__dirname, "data")));
 
 // ==========================
@@ -35,12 +34,24 @@ app.get("/", (req, res) => {
 });
 
 // ==========================
+// 📧 MAIL TRANSPORT (GMAIL SMTP)
+// ==========================
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: "lamsal.csit.np@gmail.com",
+    pass: "inrw fmjy tlbj dqgb"      // <-- REPLACE THIS ONLY
+  }
+});
+
+// ==========================
 // 💬 CONTACT FORM API
 // ==========================
 app.post("/api/contact", (req, res) => {
   const filePath = path.join(__dirname, "contacts.json");
   const newContact = req.body;
 
+  // Save to contacts.json
   fs.readFile(filePath, "utf8", (err, data) => {
     let contacts = [];
     if (!err && data) {
@@ -58,8 +69,30 @@ app.post("/api/contact", (req, res) => {
         console.error("Error saving contact:", err);
         return res.status(500).json({ message: "Error saving contact" });
       }
-      console.log("✅ New contact saved:", newContact);
-      res.json({ message: "Contact saved successfully!" });
+
+      console.log("✔ New contact saved:", newContact);
+
+      // Send Email Notification
+      const mailOptions = {
+        from: "lamsal.csit.np@gmail.com",
+        to: "lamsal.csit.np@gmail.com",
+        subject: Your web Message from ${newContact.name},
+        text: `
+Name: ${newContact.name}
+Email: ${newContact.email}
+Message: ${newContact.message}
+        `
+      };
+
+      transporter.sendMail(mailOptions, (error) => {
+        if (error) {
+          console.error("Mail Send Error:", error);
+        } else {
+          console.log("📨 Email sent successfully!");
+        }
+      });
+
+      res.json({ message: "Contact saved and email sent!" });
     });
   });
 });
@@ -69,25 +102,4 @@ app.post("/api/contact", (req, res) => {
 // ==========================
 app.get("/api/news", async (req, res) => {
   try {
-    const feed = await parser.parseURL("https://feeds.bbci.co.uk/news/rss.xml");
-    const articles = feed.items.slice(0, 10).map(item => ({
-      title: item.title,
-      link: item.link,
-      summary: item.contentSnippet || "No summary available",
-      date: item.pubDate || ""
-    }));
-
-    res.json(articles);
-  } catch (error) {
-    console.error("❌ BBC News fetch error:", error);
-    res.status(500).json({ message: "Error fetching BBC News" });
-  }
-});
-
-// ==========================
-// 🚀 START SERVER
-// ==========================
-app.listen(PORT, () => {
-  console.log(`✅ Server is running on http://localhost:${PORT}`);
-  console.log("📂 Serving files from:", __dirname);
-});
+    const feed = await parser.parseURL("https://
