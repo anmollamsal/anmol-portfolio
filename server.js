@@ -6,7 +6,7 @@ const path = require("path");
 const fs = require("fs");
 const cors = require("cors");
 const Parser = require("rss-parser");
-const nodemailer = require("nodemailer");
+const sgMail = require('@sendgrid/mail');
 
 // ==========================
 // ⚙️ SETUP
@@ -32,20 +32,14 @@ app.get("/", (req, res) => {
 });
 
 // ==========================
-// 📧 MAIL TRANSPORT (GMAIL SMTP)
+// 📧 SENDGRID SETUP
 // ==========================
-if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
-  console.error("❌ GMAIL_USER or GMAIL_PASS environment variable missing!");
+if (!process.env.SENDGRID_API_KEY || !process.env.CONTACT_EMAIL) {
+  console.error("❌ SENDGRID_API_KEY or CONTACT_EMAIL environment variable missing!");
   process.exit(1);
 }
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS, // must be App Password
-  },
-});
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // ==========================
 // 💬 CONTACT FORM API
@@ -59,21 +53,20 @@ app.post("/api/contact", async (req, res) => {
   }
 
   try {
-    // Read existing contacts
+    // Save contact locally
     let contacts = [];
     if (fs.existsSync(filePath)) {
       const data = fs.readFileSync(filePath, "utf8");
       contacts = data ? JSON.parse(data) : [];
     }
-
     contacts.push(newContact);
     fs.writeFileSync(filePath, JSON.stringify(contacts, null, 2));
     console.log("✔ New contact saved:", newContact);
 
-    // Send Email
-    const mailOptions = {
-      from: process.env.GMAIL_USER,
-      to: process.env.GMAIL_USER,
+    // Send email via SendGrid
+    const msg = {
+      to: process.env.CONTACT_EMAIL,
+      from: process.env.CONTACT_EMAIL, // must be verified in SendGrid
       subject: `New Portfolio Message from ${newContact.name}`,
       text: `
 Name: ${newContact.name}
@@ -82,12 +75,12 @@ Message: ${newContact.message}
       `,
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log("📨 Email sent successfully:", info.response);
+    await sgMail.send(msg);
+    console.log("📨 Email sent successfully via SendGrid!");
 
     res.json({ message: "Contact saved and email sent!" });
   } catch (err) {
-    console.error("Error in /api/contact:", err);
+    console.error("Error sending email:", err);
     res.status(500).json({ message: "Error saving contact or sending email" });
   }
 });
