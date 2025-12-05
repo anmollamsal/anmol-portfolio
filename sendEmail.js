@@ -1,51 +1,34 @@
-// sendEmail.js
+require("dotenv").config();
 const nodemailer = require("nodemailer");
 
-// Choose which service to use: "gmail" or "sendgrid"
-const SERVICE = "gmail"; // change to "sendgrid" if you want
+// ==========================
+// 📧 Gmail Transporter
+// ==========================
+const transporter = nodemailer.createTransport({
+  service: "Gmail",
+  auth: {
+    user: process.env.GMAIL_USER, // Your Gmail
+    pass: process.env.GMAIL_PASS, // App password
+  },
+});
 
-let transporter;
-
-if (SERVICE === "gmail") {
-  // Gmail SMTP transporter
-  transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,        // SSL port
-    secure: true,     // true for 465, false for 587
-    auth: {
-      user: process.env.GMAIL_USER, // your Gmail address
-      pass: process.env.GMAIL_PASS  // 16-character app password, no spaces
-    }
-  });
-} else if (SERVICE === "sendgrid") {
-  // SendGrid SMTP transporter
-  transporter = nodemailer.createTransport({
-    host: "smtp.sendgrid.net",
-    port: 587,       // TLS port
-    secure: false,   // false for 587
-    auth: {
-      user: "apikey",                 // literal string "apikey"
-      pass: process.env.SENDGRID_API_KEY
-    }
-  });
-} else {
-  console.error("Invalid service selected. Use 'gmail' or 'sendgrid'.");
-  process.exit(1);
-}
-
-// Email details
+// ==========================
+// 📄 Email Options
+// ==========================
 const mailOptions = {
-  from: "Your Name" <${process.env.GMAIL_USER}>, // sender
-  to: process.env.CONTACT_EMAIL,                   // recipient
-  subject: Test Email via ${SERVICE},
-  text: Hello! This is a test email sent via ${SERVICE}.
+  from: `Anmol Lamsal <${process.env.GMAIL_USER}>`, // <-- FIXED
+  to: process.env.CONTACT_EMAIL,
+  subject: "Test Email from Portfolio",
+  text: "Hello! This is a test email sent via Gmail using Node.js and Nodemailer.",
 };
 
-// Send the email
-transporter.sendMail(mailOptions, (err, info) => {
-  if (err) {
-    console.error(${SERVICE} Error:, err);
+// ==========================
+// ✉ Send Email
+// ==========================
+transporter.sendMail(mailOptions, (error, info) => {
+  if (error) {
+    console.error("❌ Error sending email:", error);
   } else {
-    console.log(${SERVICE} Message sent:, info.messageId);
+    console.log("✅ Email sent successfully! Message ID:", info.messageId);
   }
 });
