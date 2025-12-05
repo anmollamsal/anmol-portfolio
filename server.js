@@ -22,25 +22,25 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files
 app.use(express.static(__dirname));
 app.use("/data", express.static(path.join(__dirname, "data")));
 
 // ==========================
-// 🏠 HOME ROUTE
+// 🏠 HOME
 // ==========================
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
 // ==========================
-// 📧 MAIL TRANSPORT (GMAIL via ENV)
+// 📧 SENDGRID MAIL TRANSPORT
 // ==========================
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.sendgrid.net",
+  port: 587,
   auth: {
-    user: process.env.GMAIL_USER, // from Render
-    pass: process.env.GMAIL_PASS  // from Render
+    user: "apikey",   // ← DO NOT CHANGE
+    pass: process.env.SENDGRID_API_KEY  // ← Comes from Render Environment
   }
 });
 
@@ -51,13 +51,13 @@ app.post("/api/contact", (req, res) => {
   const filePath = path.join(__dirname, "contacts.json");
   const newContact = req.body;
 
+  // Save to file
   fs.readFile(filePath, "utf8", (err, data) => {
     let contacts = [];
-
     if (!err && data) {
       try {
         contacts = JSON.parse(data);
-      } catch (e) {
+      } catch {
         contacts = [];
       }
     }
@@ -72,10 +72,12 @@ app.post("/api/contact", (req, res) => {
 
       console.log("✔ New contact saved:", newContact);
 
-      // email details
+      // ==========================
+      // 📧 SEND EMAIL
+      // ==========================
       const mailOptions = {
-        from: process.env.GMAIL_USER,
-        to: process.env.GMAIL_USER,
+        from: "lamsal.csit.np@gmail.com", // ← CHANGE THIS ONLY
+        to: process.env.CONTACT_EMAIL || "lamsal.csit.np@gmail.com",
         subject: `New Portfolio Message from ${newContact.name}`,
         text: `
 Name: ${newContact.name}
