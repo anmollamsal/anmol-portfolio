@@ -7,7 +7,7 @@ const path = require("path");
 const fs = require("fs");
 const cors = require("cors");
 const Parser = require("rss-parser");
-const nodemailer = require("nodemailer");
+const sgMail = require("@sendgrid/mail");
 
 // ==========================
 // ⚙️ SETUP
@@ -15,6 +15,8 @@ const nodemailer = require("nodemailer");
 const app = express();
 const parser = new Parser();
 const PORT = process.env.PORT || 3000;
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // ==========================
 // 🔧 MIDDLEWARE
@@ -26,59 +28,57 @@ app.use(express.static(__dirname));
 app.use("/data", express.static(path.join(__dirname, "data")));
 
 // ==========================
-// 🏠 HOME
+// 🏠 HOME PAGE
 // ==========================
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
 // ==========================
-// 📧 Nodemailer Gmail Transporter
-// ==========================
-const transporter = nodemailer.createTransport({
-  service: "Gmail",
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS
-  }
-});
-
-// ==========================
-// 💬 CONTACT FORM POST
+// 💬 CONTACT FORM API
 // ==========================
 app.post("/api/contact", (req, res) => {
-  const { name, email, message } = req.body;
   const filePath = path.join(__dirname, "contacts.json");
+  const newContact = req.body;
 
-  // Save contact to file
+  // Save contact in file
   fs.readFile(filePath, "utf8", (err, data) => {
     let contacts = [];
     if (!err && data) {
-      try { contacts = JSON.parse(data); } catch { contacts = []; }
+      try {
+        contacts = JSON.parse(data);
+      } catch {
+        contacts = [];
+      }
     }
 
-    contacts.push({ name, email, message, date: new Date() });
+    contacts.push(newContact);
 
-    fs.writeFile(filePath, JSON.stringify(contacts, null, 2), (err) => {
-      if (err) return res.status(500).json({ message: "Error saving contact" });
+    fs.writeFile(filePath, JSON.stringify(contacts, null, 2), async (err) => {
+      if (err) {
+        console.error("❌ Error saving contact:", err);
+        return res.status(500).json({ message: "Error saving contact" });
+      }
 
-      console.log("✔ Contact saved:", { name, email, message });
+      console.log("✔ Contact saved:", newContact);
 
-      // Send email to your Gmail
-      const mailOptions = {
-        from: `Portfolio Contact <${process.env.GMAIL_USER}>`,
-        to: process.env.GMAIL_USER,
-        subject: `📩 New Portfolio Message from ${name}`,
-        text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`
+      // Prepare email
+      const msg = {
+        to: process.env.CONTACT_EMAIL,
+        from: process.env.CONTACT_EMAIL,
+        subject: `📨 New Portfolio Message from ${newContact.name}`,
+        text: `Name: ${newContact.name}
+Email: ${newContact.email}
+Message: ${newContact.message}`
       };
 
-      transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-          console.error("❌ Mail Send Error:", error);
-        } else {
-          console.log("📨 Email sent successfully! Message ID:", info.messageId);
-        }
-      });
+      // Send email using SendGrid API
+      try {
+        await sgMail.send(msg);
+        console.log("📨 Email sent successfully!");
+      } catch (error) {
+        console.error("❌ Mail Send Error:", error);
+      }
 
       res.json({ message: "Contact saved and email sent!" });
     });
@@ -97,10 +97,11 @@ app.get("/api/news", async (req, res) => {
       summary: item.contentSnippet || "No summary available",
       date: item.pubDate || ""
     }));
+
     res.json(articles);
   } catch (error) {
-    console.error("BBC News fetch error:", error);
-    res.status(500).json({ message: "Error fetching BBC News" });
+    console.error("❌ BBC News Fetch Error:", error);
+    res.status(500).json({ message: "Error fetching BBC news" });
   }
 });
 
