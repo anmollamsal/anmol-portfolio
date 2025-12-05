@@ -6,14 +6,14 @@ const path = require("path");
 const fs = require("fs");
 const cors = require("cors");
 const Parser = require("rss-parser");
-const sgMail = require('@sendgrid/mail');
+const nodemailer = require("nodemailer");
 
 // ==========================
 // ⚙️ SETUP
 // ==========================
 const app = express();
 const parser = new Parser();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // ==========================
 // 🔧 MIDDLEWARE
@@ -21,6 +21,8 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files
 app.use(express.static(__dirname));
 app.use("/data", express.static(path.join(__dirname, "data")));
 
@@ -32,58 +34,67 @@ app.get("/", (req, res) => {
 });
 
 // ==========================
-// 📧 SENDGRID SETUP
+// 📧 MAIL TRANSPORT (GMAIL via ENV)
 // ==========================
-if (!process.env.SENDGRID_API_KEY || !process.env.CONTACT_EMAIL) {
-  console.error("❌ SENDGRID_API_KEY or CONTACT_EMAIL environment variable missing!");
-  process.exit(1);
-}
-
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.GMAIL_USER, // from Render
+    pass: process.env.GMAIL_PASS  // from Render
+  }
+});
 
 // ==========================
 // 💬 CONTACT FORM API
 // ==========================
-app.post("/api/contact", async (req, res) => {
+app.post("/api/contact", (req, res) => {
   const filePath = path.join(__dirname, "contacts.json");
   const newContact = req.body;
 
-  if (!newContact.name || !newContact.email || !newContact.message) {
-    return res.status(400).json({ message: "All fields are required" });
-  }
-
-  try {
-    // Save contact locally
+  fs.readFile(filePath, "utf8", (err, data) => {
     let contacts = [];
-    if (fs.existsSync(filePath)) {
-      const data = fs.readFileSync(filePath, "utf8");
-      contacts = data ? JSON.parse(data) : [];
+
+    if (!err && data) {
+      try {
+        contacts = JSON.parse(data);
+      } catch (e) {
+        contacts = [];
+      }
     }
 
     contacts.push(newContact);
-    fs.writeFileSync(filePath, JSON.stringify(contacts, null, 2));
-    console.log("✔ New contact saved:", newContact);
 
-    // Send email via SendGrid
-    const msg = {
-      to: process.env.CONTACT_EMAIL,
-      from: process.env.CONTACT_EMAIL, // must be verified in SendGrid
-      subject: `New Portfolio Message from ${newContact.name}`,
-      text: `
+    fs.writeFile(filePath, JSON.stringify(contacts, null, 2), (err) => {
+      if (err) {
+        console.error("Error saving contact:", err);
+        return res.status(500).json({ message: "Error saving contact" });
+      }
+
+      console.log("✔ New contact saved:", newContact);
+
+      // email details
+      const mailOptions = {
+        from: process.env.GMAIL_USER,
+        to: process.env.GMAIL_USER,
+        subject: `New Portfolio Message from ${newContact.name}`,
+        text: `
 Name: ${newContact.name}
 Email: ${newContact.email}
 Message: ${newContact.message}
-      `,
-    };
+        `
+      };
 
-    await sgMail.send(msg);
-    console.log("📨 Email sent successfully via SendGrid!");
+      transporter.sendMail(mailOptions, (error) => {
+        if (error) {
+          console.error("Mail Send Error:", error);
+        } else {
+          console.log("📨 Email sent successfully!");
+        }
+      });
 
-    res.json({ message: "Contact saved and email sent!" });
-  } catch (err) {
-    console.error("Error sending email:", err);
-    res.status(500).json({ message: "Error saving contact or sending email" });
-  }
+      res.json({ message: "Contact saved and email sent!" });
+    });
+  });
 });
 
 // ==========================
